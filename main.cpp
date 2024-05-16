@@ -63,6 +63,7 @@ bool other_auction = false;
 int auction_share = 0;
 int iID_auction = 0;
 int biggest_bidder = 0;
+long auction_time = 0;
 
 // Parametry widoku:
 extern ViewParameters par_view;
@@ -96,6 +97,7 @@ struct Frame
 	int team_number;
 
 	long existing_time;        // czas jaki uplyn¹³ od uruchomienia programu
+	long auction_time;  //czas, kiedy ostatnia oferta licytacji się była wysłana
 
 	int share;
 };
@@ -221,6 +223,7 @@ DWORD WINAPI ReceiveThreadFunction(void* ptr)
 				auction = false;
 				iID_auction = frame.iID;
 				auction_share = frame.share;
+				auction_time = frame.auction_time;
 				sprintf(par_view.inscription2, "Oferta_licytacji_od = %d _z_cena = %d", frame.iID, auction_share);
 			}
 			break;
@@ -228,11 +231,10 @@ DWORD WINAPI ReceiveThreadFunction(void* ptr)
 
 		case AUCTION_STOP:
 		{
-			if (frame.iID == frame.iID_auction_owner) { // zakończenie licytacji przez osobę, któa rozpoczęła licytację
-				other_auction = false;
-				auction = false;
-				iID_auction = 0;
-			}
+			other_auction = false;
+			auction = false;
+			iID_auction = 0;
+			biggest_bidder = 0;
 			break;
 		}
 
@@ -241,6 +243,7 @@ DWORD WINAPI ReceiveThreadFunction(void* ptr)
 			if (frame.iID != my_vehicle->iID) { // inna osoba złożyła ofertę
 				auction_share = frame.share;
 				biggest_bidder = frame.iID;
+				auction_time = frame.auction_time;
 				sprintf(par_view.inscription2, "Oferta_licytacji_od = %d _z_cena = %d", biggest_bidder, frame.share);
 			}
 			break;
@@ -375,9 +378,34 @@ void VirtualWorldCycle()
 			//sprintf(par_view.inscription2, "Kolizja_z_obiektem_o_ID = %d", my_vehicle->iID_collider);
 		}
 	}
-	if (auction) { // jeżeli prowadzę aukcję
-		sprintf(par_view.inscription2, "Oferta_licytacji = %d", auction_share);
+	if (auction) {
+		long auction_time_now = clock() - auction_time; //czas licytacji
+		sprintf(par_view.inscription2, "Oferta_licytacji = %d,_czas_licytacji = %ld", auction_share, auction_time);
+		if (biggest_bidder > 0) {
+			sprintf(par_view.inscription2, "Oferta_licytacji = %d,_czas_licytacji = %ld,_licytator = %d", auction_share, auction_time, biggest_bidder);
+		}
+		if (auction_time_now / CLOCKS_PER_SEC > 6) {
+			float money_auction = TransferSending(biggest_bidder, MONEY, auction_share); // Wysłanie pieniędzy
+
+
+			Frame frame;
+			frame.frame_type = AUCTION_ACCEPT;
+			frame.iID = my_vehicle->iID;
+			frame.iID_receiver = biggest_bidder;
+			frame.share = auction_share;
+			int iRozmiar = multi_send->send((char*)&frame, sizeof(Frame));
+		}
 	}
+
+	if (other_auction) { // jeżeli prowadzę aukcję
+		long auction_time_now = clock() - auction_time; //czas licytacji
+		sprintf(par_view.inscription2, "Oferta_licytacji = %d,_czas_licytacji = %ld", auction_share, auction_time);
+		if (biggest_bidder > 0) {
+			sprintf(par_view.inscription2, "Oferta_licytacji = %d,_czas_licytacji = %ld,_licytator = %d", auction_share, auction_time, biggest_bidder);
+		}
+	}
+
+
 
 
 
@@ -907,11 +935,15 @@ void MessagesHandling(UINT message_type, WPARAM wParam, LPARAM lParam)
 				negotiation = false;
 				auction = true;
 				iID_auction = my_vehicle->iID;
+				auction_share = 1;
 
 				Frame frame;
 				frame.frame_type = AUCTION;
 				frame.iID = my_vehicle->iID;
-				frame.share = 1;
+				frame.share = auction_share;
+				auction_time = clock();
+				frame.auction_time = auction_time;
+				
 				frame.iID_auction_owner = iID_auction;
 				int iRozmiar = multi_send->send((char*)&frame, sizeof(Frame));
 			}
@@ -923,6 +955,9 @@ void MessagesHandling(UINT message_type, WPARAM wParam, LPARAM lParam)
 		{
 			if (auction) {
 				auction = false;
+				Frame frame;
+				frame.frame_type = AUCTION_STOP;
+				int iRozmiar = multi_send->send((char*)&frame, sizeof(Frame));
 			}
 			
 			break;
@@ -951,6 +986,7 @@ void MessagesHandling(UINT message_type, WPARAM wParam, LPARAM lParam)
 			else if (other_auction) { // zmniejszenie stanu oferty w licytacji
 				if (auction_share > 0)
 					auction_share--;
+				sprintf(par_view.inscription2, "nowa cena: %d", auction_share);
 			}
 
 			break;
@@ -967,6 +1003,8 @@ void MessagesHandling(UINT message_type, WPARAM wParam, LPARAM lParam)
 				frame.iID = my_vehicle->iID;
 				frame.share = auction_share;
 				frame.iID_auction_owner = iID_auction;
+				auction_time = clock();
+				frame.auction_time = auction_time;
 				int iRozmiar = multi_send->send((char*)&frame, sizeof(Frame));
 			}
 
