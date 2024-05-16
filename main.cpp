@@ -264,6 +264,7 @@ DWORD WINAPI ReceiveThreadFunction(void* ptr)
 			other_auction = false;
 			auction = false;
 			iID_auction = 0;
+			biggest_bidder = 0;
 			break;
 		}
 
@@ -385,15 +386,24 @@ void VirtualWorldCycle()
 			sprintf(par_view.inscription2, "Oferta_licytacji = %d,_czas_licytacji = %ld,_licytator = %d", auction_share, auction_time, biggest_bidder);
 		}
 		if (auction_time_now / CLOCKS_PER_SEC > 6) {
-			float money_auction = TransferSending(biggest_bidder, MONEY, auction_share); // Wysłanie pieniędzy
+			if (biggest_bidder > 0) {
+				float money_auction = TransferSending(biggest_bidder, MONEY, auction_share); // Wysłanie pieniędzy
 
 
-			Frame frame;
-			frame.frame_type = AUCTION_ACCEPT;
-			frame.iID = my_vehicle->iID;
-			frame.iID_receiver = biggest_bidder;
-			frame.share = auction_share;
-			int iRozmiar = multi_send->send((char*)&frame, sizeof(Frame));
+				Frame frame;
+				frame.frame_type = AUCTION_ACCEPT;
+				frame.iID = my_vehicle->iID;
+				frame.iID_receiver = biggest_bidder;
+				frame.share = auction_share;
+				int iRozmiar = multi_send->send((char*)&frame, sizeof(Frame));
+			}
+			else {
+				auction = false;
+				Frame frame;
+				frame.frame_type = AUCTION_STOP;
+				int iRozmiar = multi_send->send((char*)&frame, sizeof(Frame));
+			}
+			
 		}
 	}
 
@@ -936,6 +946,7 @@ void MessagesHandling(UINT message_type, WPARAM wParam, LPARAM lParam)
 				auction = true;
 				iID_auction = my_vehicle->iID;
 				auction_share = 1;
+				biggest_bidder = 0;
 
 				Frame frame;
 				frame.frame_type = AUCTION;
