@@ -30,17 +30,22 @@ void AutoPilot::AutoControl(MovableObject *ob)
 
 	
 	int liczba_przedmiotow = _terrain->number_of_items;
+
+	// Wyszukiwanie przedmiotów w promieniu i zapisanie ich listy do item_tab_pointer
 	Item*** item_tab_pointer;
 	long no_found_intems = _terrain->ItemsInRadius(item_tab_pointer, ob->state.vPos, 5);
 
 	for (int i = 0; i < liczba_przedmiotow; i++) {
 		Item przedmiot = _terrain->p[i];
 		
-		if (przedmiot.type == ITEM_COIN && ob->money_collection_skills >= ob->fuel_collection_skills) {
-
+		if (  (przedmiot.type == ITEM_COIN && ob->money_collection_skills >= ob->fuel_collection_skills)
+			|| (przedmiot.type == ITEM_BARREL && ob->money_collection_skills <= ob->fuel_collection_skills) ) {
+			Vector3 x = przedmiot.vPos - ob->state.vPos;
+			float iloczynSkalarny = vect_local_forward ^ x;
+			float alfa = acos(iloczynSkalarny / abs(x));
 		}
-		else if (przedmiot.type == ITEM_BARREL && ob->money_collection_skills <= ob->fuel_collection_skills) {
-
+		else {
+			
 		}
 	}
 
