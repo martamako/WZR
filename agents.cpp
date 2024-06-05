@@ -22,14 +22,27 @@ void AutoPilot::AutoControl(MovableObject *ob)
 
 	// parametry sterowania:
 	ob->breaking_degree = 0;             // si³a hamowania
-	ob->F = ob->F_max;                           // si³a napêdowa
+	ob->F = ob->F_max;                   // si³a napêdowa
 	ob->wheel_turn_speed = 0;            // prêdkoœæ skrêtu kierownicy (dodatnia - w lewo)
 	ob->if_keep_steer_wheel = 0;         // czy kierownica zablokowana (jeœli nie, to wraca do po³o¿enia standardowego)
 	ob->state.wheel_turn_angle = 0;      // k¹t skrêtu kierownicy - mo¿na ustaiwaæ go bezpoœrednio zak³adaj¹c, ¿e robot mo¿e krêciæ kierownic¹ dowolnie szybko,
 	                                     // jednaj gwa³towna zmiana po³o¿enia kierownicy (i tym samym kó³) mo¿e skutkowaæ poœlizgiem pojazdu
 
 	
+	int liczba_przedmiotow = _terrain->number_of_items;
+	Item*** item_tab_pointer;
+	long no_found_intems = _terrain->ItemsInRadius(item_tab_pointer, ob->state.vPos, 5);
 
+	for (int i = 0; i < liczba_przedmiotow; i++) {
+		Item przedmiot = _terrain->p[i];
+		
+		if (przedmiot.type == ITEM_COIN && ob->money_collection_skills >= ob->fuel_collection_skills) {
+
+		}
+		else if (przedmiot.type == ITEM_BARREL && ob->money_collection_skills <= ob->fuel_collection_skills) {
+
+		}
+	}
 
 
 
