@@ -20,7 +20,7 @@ using namespace std;
 #include "net.h"
 
 
-bool if_different_skills = false;          // czy zró¿nicowanie umiejêtnoœci (dla ka¿dego pojazdu losowane s¹ umiejêtnoœci
+bool if_different_skills = true;          // czy zró¿nicowanie umiejêtnoœci (dla ka¿dego pojazdu losowane s¹ umiejêtnoœci
 // zbierania gotówki i paliwa)
 bool if_autonomous_control = false;       // sterowanie autonomiczne pojazdem
 

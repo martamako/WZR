@@ -1,71 +1,122 @@
 #include <stdlib.h>
 #include <time.h>
-
 #include "agents.h"
-
+#define PI 3.14159265358979323846
 
 AutoPilot::AutoPilot()
 {
 
 }
 
-void AutoPilot::AutoControl(MovableObject *ob)
+
+float alpha_max = PI / 2.0;
+int id_wybranego = -1;
+
+void AutoPilot::AutoControl(MovableObject* ob)
 {
 	// TUTAJ NALE¯Y UMIEŒCIÆ ALGORYTM AUTONOMICZNEGO STEROWANIA POJAZDEM
 	// .................................................................
 	// .................................................................
 
-	Terrain *_terrain = ob->terrain;
+	Terrain* _terrain = ob->terrain;
 
 	Vector3 vect_local_forward = ob->state.qOrient.rotate_vector(Vector3(1, 0, 0));
 	Vector3 vect_local_right = ob->state.qOrient.rotate_vector(Vector3(0, 0, 1));
 
-	// parametry sterowania:
-	ob->breaking_degree = 0;             // si³a hamowania
-	ob->F = ob->F_max;                   // si³a napêdowa
-	ob->wheel_turn_speed = 0;            // prêdkoœæ skrêtu kierownicy (dodatnia - w lewo)
-	ob->if_keep_steer_wheel = 0;         // czy kierownica zablokowana (jeœli nie, to wraca do po³o¿enia standardowego)
-	ob->state.wheel_turn_angle = 0;      // k¹t skrêtu kierownicy - mo¿na ustaiwaæ go bezpoœrednio zak³adaj¹c, ¿e robot mo¿e krêciæ kierownic¹ dowolnie szybko,
-	                                     // jednaj gwa³towna zmiana po³o¿enia kierownicy (i tym samym kó³) mo¿e skutkowaæ poœlizgiem pojazdu
+	bool wybrany_istnieje = false;
+	float best_alpha;
+	int best_i;
 
-	
-	int liczba_przedmiotow = _terrain->number_of_items;
+	Vector3 x;
+	int side;
 
-	// Wyszukiwanie przedmiotów w promieniu i zapisanie ich listy do item_tab_pointer
-	Item*** item_tab_pointer;
-	long no_found_intems = _terrain->ItemsInRadius(item_tab_pointer, ob->state.vPos, 5);
-
-	for (int i = 0; i < liczba_przedmiotow; i++) {
-		Item przedmiot = _terrain->p[i];
-		
-		if (  (przedmiot.type == ITEM_COIN && ob->money_collection_skills >= ob->fuel_collection_skills)
-			|| (przedmiot.type == ITEM_BARREL && ob->money_collection_skills <= ob->fuel_collection_skills) ) {
-			Vector3 x = przedmiot.vPos - ob->state.vPos;
-			float iloczynSkalarny = vect_local_forward ^ x;
-			float alfa = acos(iloczynSkalarny / abs(x));
-		}
-		else {
-			
+	for (int i = 0; i < _terrain->number_of_items; i++)
+	{
+		if (_terrain->p[i].index == id_wybranego)
+		{
+			best_i = i;
+			wybrany_istnieje = true;
 		}
 	}
 
+	if (wybrany_istnieje && (_terrain->p[best_i].if_taken_by_me == false))
+	{
+		x = _terrain->p[best_i].vPos - ob->state.vPos;
+		float forward_ratio = vect_local_forward ^ x;
+		float alpha = acos(forward_ratio / x.length());
+		best_alpha = alpha;
+
+		float right_ratio = vect_local_right ^ x;
+		if (right_ratio > 0) {
+			side = -1;		//z prawej
+		}
+		else {
+			side = 1;		//z lewej
+		}
+	}
+	else
+	{
+		bool first = true;
+
+		for (int i = 0; i < _terrain->number_of_items; i++)
+		{
+			if (_terrain->p[i].to_take == 1)
+			{
+				Vector3 x = _terrain->p[i].vPos - ob->state.vPos;
+				float forward_ratio = vect_local_forward ^ x;
+				float alpha = acos(forward_ratio / x.length());
+
+				if (first)
+				{
+					best_alpha = alpha;
+					best_i = i;
+					first = false;
+					continue;
+				}
+
+				if (alpha < best_alpha)
+				{
+					best_alpha = alpha;
+					best_i = i;
+				}
+			}
+		}
+
+		x = _terrain->p[best_i].vPos - ob->state.vPos;
+		float right_ratio = vect_local_right ^ x;
+		if (right_ratio > 0) {
+			side = -1;		//z prawej
+		}
+		else {
+			side = 1;		//z lewej
+		}
+
+		id_wybranego = _terrain->p[best_i].index;
+	}
+
+	//tutaj
+
+
+	// Item best_item = _terrain->p[best_i];
+
+	// Item*** lista;
+	// long liczba_obiektow = _terrain->ItemsInRadius(lista, ob->state.vPos, 10.0);
+	// delete lista;
 
 
 
-
-
-
-
-
-
-
-
-
+	// parametry sterowania:
+	ob->breaking_degree = 0;						// si³a hamowania
+	ob->F = ob->F_max * (1.0 - (best_alpha / alpha_max)) / 2;			// si³a napêdowa
+	ob->wheel_turn_speed = 0;											// prêdkoœæ skrêtu kierownicy (dodatnia - w lewo)
+	ob->if_keep_steer_wheel = 0;										// czy kierownica zablokowana (jeœli nie, to wraca do po³o¿enia standardowego)
+	ob->state.wheel_turn_angle = side * 45 * (best_alpha / alpha_max);			// k¹t skrêtu kierownicy - mo¿na ustaiwaæ go bezpoœrednio zak³adaj¹c, ¿e robot mo¿e krêciæ kierownic¹ dowolnie szybko,
+	// jednaj gwa³towna zmiana po³o¿enia kierownicy (i tym samym kó³) mo¿e skutkowaæ poœlizgiem pojazdu
 
 
 }
 
-void AutoPilot::ControlTest(MovableObject *_ob, float krok_czasowy, float czas_proby)
+void AutoPilot::ControlTest(MovableObject* _ob, float krok_czasowy, float czas_proby)
 {
 	bool koniec = false;
 	float _czas = 0;               // czas liczony od pocz¹tku testu
@@ -88,7 +139,7 @@ float Randn(float srednia, float wariancja, long liczba_iter)
 	float suma = 0;
 	for (long i = 0; i < liczba_iter; i++)
 		suma += (float)rand() / RAND_MAX;
-	return (suma - (float)liczba_iter / 2)*sqrt(12 * wariancja / liczba_iter) + srednia;
+	return (suma - (float)liczba_iter / 2) * sqrt(12 * wariancja / liczba_iter) + srednia;
 }
 
 void AutoPilot::ParametersSimAnnealing(long number_of_epochs, float krok_czasowy, float czas_proby)
@@ -103,7 +154,7 @@ void AutoPilot::ParametersSimAnnealing(long number_of_epochs, float krok_czasowy
 	long gotowka_pop = 0;
 
 	float delta_par[100];
-	FILE *f = fopen("wyzarz_log.txt", "w");
+	FILE* f = fopen("wyzarz_log.txt", "w");
 
 	fprintf(f, "Start optymalizacji %d parametrow z wykorzystaniem symulowanego wyzarzania\n", number_of_params);
 	for (long ep = 0; ep < number_of_epochs; ep++)
@@ -121,7 +172,7 @@ void AutoPilot::ParametersSimAnnealing(long number_of_epochs, float krok_czasowy
 		for (long i = 0; i < number_of_params; i++)
 			fprintf(f, "par[%d] = %3.10f;\n", i, par[i]);
 		Terrain t2;
-		MovableObject *Obiekt = new MovableObject(&t2);
+		MovableObject* Obiekt = new MovableObject(&t2);
 		Obiekt->planting_skills = 1.0;
 		Obiekt->money_collection_skills = 1.0;
 		Obiekt->fuel_collection_skills = 1.0;
@@ -132,7 +183,7 @@ void AutoPilot::ParametersSimAnnealing(long number_of_epochs, float krok_czasowy
 		long gotowka = Obiekt->state.money - gotowka_pocz;
 
 		float dE = gotowka - gotowka_pop;
-		float p_akc = 1.0 / (1 + exp(-dE / (c*T)));
+		float p_akc = 1.0 / (1 + exp(-dE / (c * T)));
 		fprintf(f, "epoka %d: T = %f, gotowka = %d, dE = %f, p_akc = %f\n", ep, T, gotowka, dE, p_akc);
 		//if (gotowka > 15000) break;
 		// akceptujemy lub odrzucamy
