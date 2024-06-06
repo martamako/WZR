@@ -25,6 +25,7 @@ void AutoPilot::AutoControl(MovableObject* ob)
 
 	bool wybrany_istnieje = false;
 	float best_alpha;
+	Vector3 best_x;
 	int best_i;
 
 	Vector3 x;
@@ -64,18 +65,22 @@ void AutoPilot::AutoControl(MovableObject* ob)
 			{
 				Vector3 x = _terrain->p[i].vPos - ob->state.vPos;
 				float forward_ratio = vect_local_forward ^ x;
+				float dlugosc = x.length();
+				//float iloraz = forward_ratio / dlugosc;
 				float alpha = acos(forward_ratio / x.length());
 
 				if (first)
 				{
+					best_x = x;
 					best_alpha = alpha;
 					best_i = i;
 					first = false;
 					continue;
 				}
 
-				if (alpha < best_alpha)
+				if (x.length() < best_x.length())
 				{
+					best_x = x;
 					best_alpha = alpha;
 					best_i = i;
 				}
