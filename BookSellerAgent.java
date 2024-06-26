@@ -17,6 +17,7 @@ public class BookSellerAgent extends Agent
 {
   // Katalog lektur na sprzedaż:
   private Hashtable catalogue;
+  private double bestPrice;
 
   // Inicjalizacja klasy agenta:
   protected void setup()
@@ -37,6 +38,8 @@ public class BookSellerAgent extends Agent
 
     // Dodanie zachowania obsługującego odpowiedzi na oferty klientów (kupujących książki):
     addBehaviour(new OfferRequestsServer());
+
+    addBehaviour(new TargowanieServer());
 
     // Dodanie zachowania obsługującego zamówienie klienta:
     addBehaviour(new PurchaseOrdersServer());
@@ -73,9 +76,10 @@ public class BookSellerAgent extends Agent
           Integer price = (Integer) catalogue.get(title);     // ustalenie ceny dla podanego tytułu
           if (price != null) {                                // jeśli taki tytuł jest dostępny
             reply.setPerformative(ACLMessage.PROPOSE);            // ustalenie typu wiadomości (propozycja)
-            reply.setContent(String.valueOf(price.intValue()));   // umieszczenie ceny w polu zawartości (content)
-            System.out.println("Agent-sprzedawca "+getAID().getName()+" odpowiada: "+
-                   price.intValue());
+            bestPrice = price.doubleValue();
+            reply.setContent(String.valueOf(bestPrice));   // umieszczenie ceny w polu zawartości (content)
+
+            System.out.println("Agent-sprzedawca "+getAID().getName()+" odpowiada: "+ price);
           }
           else {                                              // jeśli tytuł niedostępny
             // The requested book is NOT available for sale.
@@ -91,21 +95,52 @@ public class BookSellerAgent extends Agent
       }
     } // Koniec klasy wewnętrznej będącej rozszerzeniem klasy CyclicBehaviour
 
+  class TargowanieServer extends CyclicBehaviour
+  {
+    public void action()
+    {
+      MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.REQUEST);
+      ACLMessage msg = myAgent.receive(mt);
 
-    class PurchaseOrdersServer extends CyclicBehaviour
+      if (msg != null)
+      {
+        // Message received. Process it
+        ACLMessage reply = msg.createReply();
+        double newPrice = Double.parseDouble(msg.getContent());
+        bestPrice = 0.75 * bestPrice + 0.25 * newPrice;
+        reply.setPerformative(ACLMessage.REQUEST_WHEN);
+        reply.setContent(String.valueOf(bestPrice));
+        System.out.println("Agent sprzedający (wersja c <2023/24>) " + getAID().getName() +
+                " targuje się ceną " + bestPrice);
+        myAgent.send(reply);
+      }
+    }
+  } // Koniec klasy wewnętrznej będącej rozszerzeniem klasy CyclicBehaviour
+
+  class PurchaseOrdersServer extends CyclicBehaviour
     {
       public void action()
       {
-        ACLMessage msg = myAgent.receive();
+        MessageTemplate mt = MessageTemplate.MatchConversationId("koniec_handlu");
+        ACLMessage msg = myAgent.receive(mt);
 
-        if ((msg != null)&&(msg.getPerformative() == ACLMessage.ACCEPT_PROPOSAL))
+        if (msg != null)
         {
-          // Message received. Process it          
-          ACLMessage reply = msg.createReply();
-          String title = msg.getContent();
-          reply.setPerformative(ACLMessage.INFORM);
-          System.out.println("Agent sprzedający (wersja c <2023/24>) "+getAID().getName()+" sprzedał książkę: "+title);
-          myAgent.send(reply);
+          // Message received. Process it
+          if (msg.getPerformative() == ACLMessage.ACCEPT_PROPOSAL) {
+            ACLMessage reply = msg.createReply();
+            String title = msg.getContent();
+            reply.setPerformative(ACLMessage.INFORM);
+            System.out.println("Agent sprzedający (wersja c <2023/24>) "+getAID().getName()+" sprzedał książkę: "+title);
+            myAgent.send(reply);
+          } else if (msg.getPerformative() == ACLMessage.REJECT_PROPOSAL) {
+            ACLMessage reply = msg.createReply();
+            String title = msg.getContent();
+            reply.setPerformative(ACLMessage.INFORM_REF);
+            myAgent.send(reply);
+            System.out.println("Nie doszło do targu");
+          }
+
         }
       }
     } // Koniec klasy wewnętrznej będącej rozszerzeniem klasy CyclicBehaviour
